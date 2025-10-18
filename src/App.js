@@ -1,72 +1,133 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios'; // Importamos axios para comunicarnos con el backend
+import axios from 'axios';
 import './App.css';
 
-// La URL base de nuestra API que está corriendo en el puerto 5000
-const API_URL = 'http://localhost:5000/api/tasks';
+// 🌐 Cambia esta URL por la IP pública de tu backend (EC2)
+const API_URL = 'http://3.87.154.186:5000/api/productos';
 
 function App() {
-  // 'tasks' guardará la lista de tareas, 'setTasks' es la función para actualizarla.
-  const [tasks, setTasks] = useState([]);
-  // 'newTaskTitle' guardará el texto del input para la nueva tarea.
-  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [productos, setProductos] = useState([]);
+  const [nuevoProducto, setNuevoProducto] = useState({
+    nombre: '',
+    categoria: '',
+    cantidad: '',
+    precio: ''
+  });
 
-  // useEffect se ejecuta cuando el componente se carga por primera vez.
-  // Es perfecto para cargar los datos iniciales.
+  // ✅ Cargar productos al inicio
   useEffect(() => {
-    // Hacemos una petición GET a nuestra API para obtener todas las tareas.
-    axios.get(API_URL)
-      .then(response => {
-        // Si la petición es exitosa, actualizamos el estado con las tareas recibidas.
-        setTasks(response.data);
-      })
-      .catch(error => {
-        // Si hay un error, lo mostramos en la consola.
-        console.error('Hubo un error al obtener las tareas:', error);
-      });
-  }, []); // El array vacío asegura que esto se ejecute solo una vez.
+    obtenerProductos();
+  }, []);
 
-  // Esta función se llama cuando se envía el formulario para añadir una tarea.
-  const handleAddTask = (e) => {
-    e.preventDefault(); // Evita que la página se recargue al enviar el formulario.
-    if (!newTaskTitle.trim()) return; // No añade tareas vacías.
+  const obtenerProductos = async () => {
+    try {
+      const res = await axios.get(API_URL);
+      setProductos(res.data);
+    } catch (error) {
+      console.error('Error al obtener productos:', error);
+    }
+  };
 
-    // Hacemos una petición POST a la API, enviando el título de la nueva tarea.
-    axios.post(API_URL, { title: newTaskTitle })
-      .then(response => {
-        // Si la tarea se crea con éxito, la añadimos a nuestra lista de tareas local.
-        setTasks([...tasks, response.data]);
-        // Limpiamos el campo de texto.
-        setNewTaskTitle('');
-      })
-      .catch(error => {
-        console.error('Hubo un error al crear la tarea:', error);
+  // ✅ Manejar cambios en el formulario
+  const handleChange = (e) => {
+    setNuevoProducto({
+      ...nuevoProducto,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  // ✅ Agregar un nuevo producto
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post(API_URL, {
+        nombre: nuevoProducto.nombre,
+        categoria: nuevoProducto.categoria,
+        cantidad: parseInt(nuevoProducto.cantidad),
+        precio: parseFloat(nuevoProducto.precio)
       });
+      setProductos([...productos, res.data]);
+      setNuevoProducto({ nombre: '', categoria: '', cantidad: '', precio: '' });
+    } catch (error) {
+      console.error('Error al agregar producto:', error);
+    }
+  };
+
+  // ✅ Eliminar producto
+  const eliminarProducto = async (id) => {
+    try {
+      await axios.delete(`${API_URL}/${id}`);
+      setProductos(productos.filter((prod) => prod._id !== id));
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+    }
   };
 
   return (
     <div className="app-container">
-      <header className="app-header">
-        <h1>Lista de Tareas (MERN) 📝</h1>
-        <form onSubmit={handleAddTask} className="task-form">
-          <input
-            type="text"
-            className="task-input"
-            value={newTaskTitle}
-            onChange={(e) => setNewTaskTitle(e.target.value)}
-            placeholder="Añadir una nueva tarea..."
-          />
-          <button type="submit" className="task-button">Añadir</button>
-        </form>
+      <h1>🧾 Control de Inventario</h1>
 
-        <ul className="task-list">
-          {tasks.map(task => (
-            <li key={task._id} className="task-item">
-              {task.title}
-            </li>
+      <form className="formulario" onSubmit={handleSubmit}>
+        <input
+          type="text"
+          name="nombre"
+          placeholder="Nombre del producto"
+          value={nuevoProducto.nombre}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="text"
+          name="categoria"
+          placeholder="Categoría"
+          value={nuevoProducto.categoria}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="number"
+          name="cantidad"
+          placeholder="Cantidad"
+          value={nuevoProducto.cantidad}
+          onChange={handleChange}
+          required
+        />
+        <input
+          type="number"
+          step="0.01"
+          name="precio"
+          placeholder="Precio (S/)"
+          value={nuevoProducto.precio}
+          onChange={handleChange}
+          required
+        />
+        <button type="submit">Agregar producto</button>
+      </form>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Categoría</th>
+            <th>Cantidad</th>
+            <th>Precio (S/)</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {productos.map((prod) => (
+            <tr key={prod._id}>
+              <td>{prod.nombre}</td>
+              <td>{prod.categoria}</td>
+              <td>{prod.cantidad}</td>
+              <td>{prod.precio}</td>
+              <td>
+                <button onClick={() => eliminarProducto(prod._id)}>🗑️ Eliminar</button>
+              </td>
+            </tr>
           ))}
-        </ul>
-      </header>
+        </tbody>
+      </table>
     </div>
   );
 }
